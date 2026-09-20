@@ -9,5 +9,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Pinned to a full commit of main (2026-09-20), the safest way to pin an action.
-      - uses: mukti-sys/InstallScope/action/record@d14c31562b75676d0448fb7092f7a8074bd4f263
+      - uses: actions/checkout@v4
+        with:
+          repository: mukti-sys/InstallScope
+          ref: d14c31562b75676d0448fb7092f7a8074bd4f263
+          path: .is-src
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install strace
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends strace
+      - name: Build installscope
+        working-directory: .is-src
+        run: |
+          cargo build --release --locked -p installscope
+          echo "$GITHUB_WORKSPACE/.is-src/target/release" >> "$GITHUB_PATH"
+      - name: Record and report
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+          mkdir -p installscope-work
+          git show "origin/${GITHUB_BASE_REF}:package-lock.json" > installscope-work/base-lock.json 2>/dev/null || : > installscope-work/base-lock.json
+          installscope lockfile-diff --before installscope-work/base-lock.json --after package-lock.json --json > installscope-work/lockfile-diff.json || true
+          cat installscope-work/lockfile-diff.json
+          export HOME="${GITHUB_WORKSPACE}/installscope-work/home"
+          mkdir -p "$HOME/.npm"
+          set +e
+          installscope record \
+            --out installscope-work/recording \
+            --project "${GITHUB_WORKSPACE}" \
+            --cache "$HOME/.npm" \
+            --timeout 600 \
+            -- npm install --no-audit --no-fund
+          echo "record exit $?"
+          set -e
+          evidence_link="\( {GITHUB_SERVER_URL}/ \){GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          installscope report installscope-work/recording/events.jsonl \
+            --out installscope-work/report \
+            --evidence-link "$evidence_link"
+          mkdir -p installscope-artifact
+          jq -r '.pull_request.number // empty' "$GITHUB_EVENT_PATH" > installscope-artifact/pr.txt
+          cp installscope-work/report/installscope-comment.md installscope-artifact/ || true
+          cp installscope-work/report/installscope.sarif.json installscope-artifact/ || true
+          cp installscope-work/report/installscope-report.html installscope-artifact/ || true
+          cp installscope-work/recording/events.jsonl installscope-artifact/ || true
+          ls -la installscope-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installscope-report
+          path: installscope-artifact
+          retention-days: 30
+          if-no-files-found: error
