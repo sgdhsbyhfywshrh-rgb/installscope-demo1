@@ -9,5 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Pinned to a full commit of main (2026-09-20), the safest way to pin an action.
-      - uses: mukti-sys/InstallScope/action/record@d14c31562b75676d0448fb7092f7a8074bd4f263
+      - uses: mukti-sys/InstallScope/action/record@f4d58d21f104a6aa3d52e1904b117f32654004d3
