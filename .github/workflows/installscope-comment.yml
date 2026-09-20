@@ -1,0 +1,14 @@
+name: installscope-comment
+on:
+  workflow_run:
+    workflows: ["installscope"]
+    types: [completed]
+permissions:
+  pull-requests: write
+  contents: read
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mukti-sys/InstallScope/action/comment@d14c31562b75676d0448fb7092f7a8074bd4f263
