@@ -9,29 +9,7 @@ permissions:
   actions: read
 jobs:
   comment:
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: installscope-report
-          path: installscope-artifact
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
-      - name: Post comment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
-        run: |
-          set -euo pipefail
-          REPO="$GITHUB_REPOSITORY"
-          pr_number="$(tr -d '[:space:]' < installscope-artifact/pr.txt)"
-          printf '%s\n' "<!-- installscope-report -->" > comment-body.md
-          cat installscope-artifact/installscope-comment.md >> comment-body.md
-          printf '\n<sub>Full evidence: %s/%s/actions/runs/%s</sub>\n' "$GITHUB_SERVER_URL" "$REPO" "$RUN_ID" >> comment-body.md
-          existing="$(gh api "repos/$REPO/issues/$pr_number/comments" --paginate | jq -r --arg marker "<!-- installscope-report -->" '.[] | select(.body | startswith($marker)) | .id' | head -n 1)"
-          if [ -n "$existing" ]; then
-            gh api --method PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment-body.md > /dev/null
-          else
-            gh api --method POST "repos/$REPO/issues/$pr_number/comments" -F body=@comment-body.md > /dev/null
-          fi
+      - uses: actions/checkout@v4
+      - uses: mukti-sys/InstallScope/action/comment@f4d58d21f104a6aa3d52e1904b117f32654004d3
